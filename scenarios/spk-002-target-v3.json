@@ -1,0 +1,5 @@
+{
+  "scenario": "SPK-002",
+  "purpose": "Prove independently read live target movement invalidates a successful prospective candidate",
+  "variant": "live-ref-stale-base-v3"
+}
