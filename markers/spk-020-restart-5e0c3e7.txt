@@ -1,0 +1,4 @@
+SPK-020 service and database restart recovery
+
+This synthetic marker is candidate data only. It exercises fail-closed startup
+reconciliation after both the control plane and PostgreSQL restart.
