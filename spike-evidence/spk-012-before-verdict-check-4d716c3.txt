@@ -1,0 +1,2 @@
+SPK-012 queue-verdict restart case: before write
+Control plane commit: 4d716c3
