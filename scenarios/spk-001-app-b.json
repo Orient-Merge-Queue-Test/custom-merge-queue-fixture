@@ -1,0 +1,5 @@
+{
+  "scenario": "SPK-001",
+  "member": "APP-B",
+  "operation": { "kind": "add", "value": 2 }
+}
