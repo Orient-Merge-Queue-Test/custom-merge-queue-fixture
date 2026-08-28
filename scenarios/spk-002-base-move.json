@@ -1,0 +1,8 @@
+{
+  "scenario": "SPK-002",
+  "member": "BASE-MOVER",
+  "operation": {
+    "kind": "add",
+    "value": 20
+  }
+}
