@@ -1,0 +1,6 @@
+{
+  "scenario": "SPK-002",
+  "event": "live target ref moved after successful queue verdict",
+  "invalidatesCandidateBase": "dd81991f430fa1014c5c2ab7b4031e9e11e86182",
+  "variant": "preconstructed-v3"
+}
