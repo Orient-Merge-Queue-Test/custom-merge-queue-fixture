@@ -1,0 +1,5 @@
+{
+  "scenario": "SPK-004",
+  "purpose": "Prove approval dismissal after queue verdict blocks the final operation",
+  "variant": "post-verdict-approval-dismissal"
+}
