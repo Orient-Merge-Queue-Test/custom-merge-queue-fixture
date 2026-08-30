@@ -1,0 +1,5 @@
+{
+  "scenario": "SPK-005",
+  "purpose": "Prove a requested-changes review after queue verdict blocks the final operation",
+  "variant": "post-verdict-requested-changes"
+}
