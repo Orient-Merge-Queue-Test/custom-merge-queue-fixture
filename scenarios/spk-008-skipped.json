@@ -1,0 +1,8 @@
+{
+  "scenario": "SPK-008",
+  "member": "SKIPPED",
+  "operation": {
+    "kind": "add",
+    "value": 81
+  }
+}
