@@ -1,0 +1,5 @@
+{
+  "scenario": "SPK-006",
+  "purpose": "Prove candidate-ref tampering is detected before merge",
+  "variant": "post-verdict-candidate-ref-modification"
+}
