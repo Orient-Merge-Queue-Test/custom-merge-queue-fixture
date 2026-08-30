@@ -1,0 +1,5 @@
+{
+  "scenario": "SPK-003",
+  "purpose": "Prove a pull-request head update after queue verdict invalidates the pinned attempt",
+  "variant": "post-verdict-head-change"
+}
