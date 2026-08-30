@@ -1,0 +1,5 @@
+{
+  "scenario": "SPK-007",
+  "member": "TARGET",
+  "operation": { "kind": "add", "value": 7 }
+}
