@@ -1,0 +1,2 @@
+SPK-011 candidate-ref crash boundary: after write
+Implementation: 6ff9425
