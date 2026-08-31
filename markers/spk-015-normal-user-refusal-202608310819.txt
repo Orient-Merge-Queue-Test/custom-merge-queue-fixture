@@ -1,0 +1,1 @@
+SPK-015 normal-user merge refusal fixture
