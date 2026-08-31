@@ -1,0 +1,4 @@
+Synthetic marker for SPK-019 retryable GitHub-error recovery.
+
+Control-plane source commit: 874f10b
+Fault boundary: before_verdict_write
