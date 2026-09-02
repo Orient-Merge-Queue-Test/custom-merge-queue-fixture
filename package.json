@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "sleep 45 && node --test"
+    "test": "sleep 120 && node --test"
   }
 }
