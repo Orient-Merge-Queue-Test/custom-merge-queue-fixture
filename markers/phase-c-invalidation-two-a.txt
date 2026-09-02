@@ -1,1 +1,1 @@
-phase-c invalidation two predecessor initial
+phase-c invalidation two predecessor app-authored replacement
