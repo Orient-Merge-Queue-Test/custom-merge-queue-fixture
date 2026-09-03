@@ -1,0 +1,6 @@
+{
+  "scenario": "SPK-003",
+  "event": "pull-request head changed after successful queue verdict",
+  "invalidatesPinnedHead": "7a8f71aa5bca7d853c235f29abacbc5c9fdc5e19",
+  "variant": "preconstructed-head-change"
+}
