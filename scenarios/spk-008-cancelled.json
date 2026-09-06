@@ -1,0 +1,8 @@
+{
+  "scenario": "SPK-008",
+  "member": "CANCELLED",
+  "operation": {
+    "kind": "add",
+    "value": 83
+  }
+}
