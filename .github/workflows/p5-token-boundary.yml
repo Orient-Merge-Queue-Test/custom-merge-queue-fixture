@@ -1,0 +1,66 @@
+name: p5-workflow-token-boundary
+
+on:
+  push:
+    branches:
+      - "qualification/security/p5-20260907-c4f5aec"
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+
+jobs:
+  token-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove ordinary workflow token cannot use queue authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          node --input-type=module <<'OMQ_NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          const cases=[{"baseBranch": "main", "baseSha": "297385d61f2fcb94719cd94fbcf1be4bccbaaee5", "headSha": "32703316738e75902cae37a0e492207d926bb720", "prNumber": 48, "candidateBranch": "orient-queue/main/p5-20260907-c4f5aec", "candidateSha": "98bc5a1b46988bed5b265a0a14f134f621247653"}, {"baseBranch": "release/p2", "baseSha": "297385d61f2fcb94719cd94fbcf1be4bccbaaee5", "headSha": "d9aa28c385ce92092220945f01ca07ec008191f5", "prNumber": 49, "candidateBranch": "orient-queue/release/p2/p5-20260907-c4f5aec", "candidateSha": "9e0e8f47b4cc2df2ef60f859789fd525546d0d98"}];
+          const repo=process.env.GITHUB_REPOSITORY;
+          assert.equal(repo,"Orient-Merge-Queue-Test/custom-merge-queue-fixture");
+          const api=async(method,path,body)=>{
+           const r=await fetch('https://api.github.com/repos/'+repo+path,{method,headers:{Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(20000)});
+           const value=await r.json();return {status:r.status,value};
+          };
+          for(const c of cases){
+           const basePath='/git/ref/heads/'+encodeURIComponent(c.baseBranch);
+           const candidatePath='/git/ref/heads/'+encodeURIComponent(c.candidateBranch);
+           assert.equal((await api('GET',basePath)).value.object.sha,c.baseSha);
+           const pr=(await api('GET','/pulls/'+c.prNumber)).value;
+           assert.equal(pr.head.sha,c.headSha);assert.equal(pr.merged,false);
+           const reviews=(await api('GET','/pulls/'+c.prNumber+'/reviews')).value;
+           assert.ok(reviews.some(r=>r.state==='APPROVED'&&r.commit_id===c.headSha&&r.user.login==='oyvindfo'));
+           const checks=(await api('GET','/commits/'+c.headSha+'/check-runs?filter=latest&per_page=100')).value.check_runs;
+           for(const name of ['fixture-ci','credential-isolation'])assert.ok(checks.some(v=>v.name===name&&v.app.id===15368&&v.head_sha===c.headSha&&v.status==='completed'&&v.conclusion==='success'));
+           for(const [kind,method,path,body] of [
+            ['candidate-create','POST','/git/refs',{ref:'refs/heads/'+c.candidateBranch+'-actions-probe',sha:c.headSha}],
+            ['candidate-update','PATCH','/git/refs/heads/'+encodeURIComponent(c.candidateBranch),{sha:c.headSha,force:true}],
+            ['target-update','PATCH','/git/refs/heads/'+encodeURIComponent(c.baseBranch),{sha:c.headSha,force:false}],
+           ]){
+            console.log('OMQ_TOKEN_INTENT '+JSON.stringify({kind,baseBranch:c.baseBranch,path}));
+            const r=await api(method,path,body);
+            console.log('OMQ_TOKEN_RESULT '+JSON.stringify({kind,baseBranch:c.baseBranch,status:r.status,message:r.value.message}));
+            assert.ok([403,422].includes(r.status),'write unexpectedly succeeded or refusal was ambiguous');
+            assert.equal((await api('GET',basePath)).value.object.sha,c.baseSha);
+            assert.equal((await api('GET',candidatePath)).value.object.sha,c.candidateSha);
+           }
+           const context='orient-queue/verdict/v1/'+createHash('sha256').update(c.baseBranch).digest('hex');
+           const spoof=await api('POST','/check-runs',{name:context,head_sha:c.headSha,status:'completed',conclusion:'success',output:{title:'Synthetic wrong-App identity probe',summary:'This GitHub Actions check intentionally has the wrong App identity and must never authorize the queue.'}});
+           assert.equal(spoof.status,201);assert.equal(spoof.value.app.id,15368);assert.notEqual(spoof.value.app.id,4746307);
+           console.log('OMQ_TOKEN_RESULT '+JSON.stringify({kind:'wrong-app-check',baseBranch:c.baseBranch,id:spoof.value.id,appId:spoof.value.app.id,context,status:spoof.status}));
+           const merge=await api('PUT','/pulls/'+c.prNumber+'/merge',{sha:c.headSha,merge_method:'squash'});
+           console.log('OMQ_TOKEN_RESULT '+JSON.stringify({kind:'merge-after-wrong-app-check',baseBranch:c.baseBranch,status:merge.status,message:merge.value.message}));
+           assert.ok([403,405].includes(merge.status));
+           assert.equal((await api('GET',basePath)).value.object.sha,c.baseSha);
+           assert.equal((await api('GET','/pulls/'+c.prNumber)).value.merged,false);
+          }
+          console.log('OMQ_TOKEN_COMPLETE '+JSON.stringify({repo,cases:cases.length}));
+          OMQ_NODE
