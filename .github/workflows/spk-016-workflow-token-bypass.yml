@@ -1,0 +1,101 @@
+name: spk-016-workflow-token-bypass
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  workflow-token-bypass:
+    name: workflow-token-bypass
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Verify queue credentials are absent
+        shell: bash
+        run: |
+          test -z "${ORIENT_QUEUE_APP_PRIVATE_KEY:-}"
+          test -z "${ORIENT_QUEUE_INSTALLATION_TOKEN:-}"
+          test -z "${ORIENT_QUEUE_DATABASE_URL:-}"
+          test -z "${ORIENT_QUEUE_WEBHOOK_SECRET:-}"
+
+      - name: Check out the exact protected base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: true
+
+      - name: Attempt direct push with the workflow token
+        shell: bash
+        run: |
+          git config user.name "spk-016-workflow-token"
+          git config user.email "spk-016-workflow-token@users.noreply.github.com"
+          git commit --allow-empty -m "SPK-016 unauthorized direct main update"
+          set +e
+          push_output="$(git push origin HEAD:main 2>&1)"
+          push_status=$?
+          set -e
+          printf "%s\n" "$push_output"
+          {
+            echo "## Direct push attempt"
+            echo
+            echo "- workflow token requested contents: write"
+            echo "- exit code: $push_status"
+            echo "- blocked: $([ "$push_status" -ne 0 ] && echo true || echo false)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$push_status" -eq 0 ]; then
+            echo "::error::The workflow token unexpectedly updated main."
+            exit 1
+          fi
+
+      - name: Wait for independent approval and ordinary checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          ready=false
+          for attempt in $(seq 1 240); do
+            decision="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json reviewDecision --jq '.reviewDecision // ""' 2>/dev/null || true)"
+            checks="$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs" 2>/dev/null || true)"
+            fixture="$(jq -r '[.check_runs[]? | select(.name == "fixture-ci" and .app.id == 15368 and .status == "completed")][-1].conclusion // ""' <<<"$checks")"
+            isolation="$(jq -r '[.check_runs[]? | select(.name == "credential-isolation" and .app.id == 15368 and .status == "completed")][-1].conclusion // ""' <<<"$checks")"
+            if [ "$decision" = "APPROVED" ] && [ "$fixture" = "success" ] && [ "$isolation" = "success" ]; then
+              ready=true
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" != true ]; then
+            echo "::error::Approval and ordinary required checks did not become current before timeout."
+            exit 1
+          fi
+
+      - name: Attempt head-pinned squash merge with the workflow token
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set +e
+          merge_output="$(gh api --include --method PUT "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/merge" -f sha="$HEAD_SHA" -f merge_method=squash 2>&1)"
+          merge_status=$?
+          set -e
+          printf "%s\n" "$merge_output"
+          {
+            echo "## Head-pinned squash merge attempt"
+            echo
+            echo "- workflow token requested pull-requests: write"
+            echo "- exact PR head: $HEAD_SHA"
+            echo "- exit code: $merge_status"
+            echo "- blocked: $([ "$merge_status" -ne 0 ] && echo true || echo false)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$merge_status" -eq 0 ]; then
+            echo "::error::The workflow token unexpectedly merged the pull request."
+            exit 1
+          fi
